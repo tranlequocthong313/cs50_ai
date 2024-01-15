@@ -56,39 +56,41 @@ class Maze:
         self.height = len(self.map)
         self.width = max(len(line) for line in self.map)
 
-        for i in range(self.height):
-            for j in range(self.width):
+        for r in range(self.height):
+            for c in range(self.width):
                 try:
-                    if self.map[i][j] == "A":
-                        self.start = (i, j)
-                    elif self.map[i][j] == "B":
-                        self.goal = (i, j)
+                    if self.map[r][c] == "A":
+                        self.start = (r, c)
+                    elif self.map[r][c] == "B":
+                        self.goal = (r, c)
                 except IndexError:
                     pass
 
         self.solution = None
 
     def print(self):
+        solution = self.solution[1] if self.solution is not None else None
         print()
-        for i, row in enumerate(self.map):
-            for j, col in enumerate(row):
+        for r, row in enumerate(self.map):
+            for c, col in enumerate(row):
                 if (
-                    (i, j) != self.start
-                    and (i, j) != self.goal
-                    and self.solution is not None
-                    and (i, j) in self.solution
+                    (r, c) != self.start
+                    and (r, c) != self.goal
+                    and solution is not None
+                    and (r, c) in solution
                 ):
                     print("*", end="")
                 else:
-                    print(self.map[i][j], end="")
+                    print(self.map[r][c], end="")
             print()
-        print("Moved steps", self.moved_steps)
+        print("States explored", self.num_explored)
 
     def display_image(self):
         from PIL import Image, ImageDraw
 
         if not self.show_image:
             return
+        solution = self.solution[1] if self.solution is not None else None
         self.square_size = 200
         img = Image.new(
             "RGB", (self.width * self.square_size, self.height * self.square_size)
@@ -100,30 +102,30 @@ class Maze:
             "#": (27, 27, 27),
             " ": (255, 255, 255),
         }
-        for i, row in enumerate(self.map):
-            for j, col in enumerate(row):
-                fill = colors[self.map[i][j]]
+        for r, row in enumerate(self.map):
+            for c, col in enumerate(row):
+                fill = colors[self.map[r][c]]
                 if (
                     self.verbose
-                    and (i, j) != self.start
-                    and (i, j) != self.goal
-                    and self.visited is not None
-                    and (i, j) in self.visited
+                    and (r, c) != self.start
+                    and (r, c) != self.goal
+                    and self.explored is not None
+                    and (r, c) in self.explored
                 ):
                     fill = (196, 76, 74)
                 if (
-                    (i, j) != self.start
-                    and (i, j) != self.goal
-                    and self.solution is not None
-                    and (i, j) in self.solution
+                    (r, c) != self.start
+                    and (r, c) != self.goal
+                    and solution is not None
+                    and (r, c) in solution
                 ):
                     fill = (255, 255, 0)
                 canvas.rectangle(
                     [
-                        (j * self.square_size, i * self.square_size),
+                        (c * self.square_size, r * self.square_size),
                         (
-                            j * self.square_size + self.square_size,
-                            i * self.square_size + self.square_size,
+                            c * self.square_size + self.square_size,
+                            r * self.square_size + self.square_size,
                         ),
                     ],
                     fill=fill,
@@ -133,71 +135,59 @@ class Maze:
         img.show()
         img.save("maze.png", "PNG")
 
+    def neighbors(self, state):
+        row, col = state
+
+        candidates = [
+            ("up", (row - 1, col)),
+            ("down", (row + 1, col)),
+            ("left", (row, col - 1)),
+            ("right", (row, col + 1)),
+        ]
+
+        result = []
+        for action, (r, c) in candidates:
+            try:
+                if not self.map[r][c] == "#":
+                    result.append((action, (r, c)))
+            except IndexError:
+                continue
+        return result
+
     def solve(self):
-        self.moved_steps = 0
-        self.frontier = QueueFrontier() if self.bfs else StackFrontier()
-        self.visited = set(self.start)
-        node = Node(state=self.start, parent=None, action=None)
-        self.frontier.add(node)
-        while not self.frontier.empty():
-            node = self.frontier.remove()
-            self.visited.add(node.state)
-            self.moved_steps += 1
+        self.num_explored = 0
+
+        start = Node(state=self.start, parent=None, action=None)
+        frontier = QueueFrontier() if self.bfs else StackFrontier()
+        frontier.add(start)
+
+        self.explored = set()
+
+        while True:
+            if frontier.empty():
+                raise Exception("no solution")
+
+            node = frontier.remove()
+            self.num_explored += 1
 
             if self.goal == node.state:
-                self.solution = []
-                while node:
-                    self.solution.append(node.state)
+                actions = []
+                cells = []
+                while node.parent is not None:
+                    actions.append(node.action)
+                    cells.append(node.state)
                     node = node.parent
-                break
+                actions.reverse()
+                cells.reverse()
+                self.solution = (actions, cells)
+                return
 
-            (i, j) = node.state
-            down = Node(state=(i + 1, j), parent=node, action=None)
-            up = Node(state=(i - 1, j), parent=node, action=None)
-            right = Node(state=(i, j + 1), parent=node, action=None)
-            left = Node(state=(i, j - 1), parent=node, action=None)
-            if self.__valid_state(node=down):
-                self.frontier.add(down)
-            if self.__valid_state(node=up):
-                self.frontier.add(up)
-            if self.__valid_state(node=left):
-                self.frontier.add(left)
-            if self.__valid_state(node=right):
-                self.frontier.add(right)
+            self.explored.add(node.state)
 
-        self.display_image()
-
-    def __solve_helper(self, node):
-        if node == None:
-            return
-        if self.goal == node.state:
-            self.solution = []
-            while node:
-                self.solution.append(node.state)
-                node = node.parent
-            return
-        if not self.__valid_state(node=node):
-            return
-
-        self.moved_steps += 1
-        self.visited.add(node.state)
-
-        (i, j) = node.state
-        self.__solve_helper(node=(Node(state=(i + 1, j), parent=node, action=None)))
-        self.__solve_helper(node=(Node(state=(i - 1, j), parent=node, action=None)))
-        self.__solve_helper(node=(Node(state=(i, j + 1), parent=node, action=None)))
-        self.__solve_helper(node=(Node(state=(i, j - 1), parent=node, action=None)))
-
-    def __valid_state(self, node):
-        (i, j) = node.state
-        return (
-            i >= 0
-            and i < self.height
-            and j >= 0
-            and j < self.width
-            and (i, j) not in self.visited
-            and self.map[i][j] != "#"
-        )
+            for action, state in self.neighbors(node.state):
+                if not frontier.contains_state(state) and state not in self.explored:
+                    child = Node(state=state, parent=node, action=action)
+                    frontier.add(child)
 
 
 if __name__ == "__main__":
@@ -221,6 +211,7 @@ if __name__ == "__main__":
         verbose = "--verbose" in sys.argv
         bfs = "--bfs" in sys.argv
 
-        maze = Maze(filename, show_image, verbose, bfs)
+        maze = Maze(filename=filename, show_image=show_image, verbose=verbose, bfs=bfs)
         maze.solve()
         maze.print()
+        maze.display_image()
