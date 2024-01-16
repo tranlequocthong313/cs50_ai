@@ -217,7 +217,7 @@ class Maze:
                 raise Exception("no solution")
 
             if self.gbfs:
-                node = frontier.remove_smallest_node(self.__distance_to_goal)
+                node = frontier.remove_smallest_node(self.__heuristic)
             else:
                 node = frontier.remove()
             self.num_explored += 1
@@ -244,9 +244,9 @@ class Maze:
     def __valid_state(self, frontier, state):
         return not frontier.contains_state(state) and state not in self.explored
 
-    def __distance_to_goal(self, state):
+    def __heuristic(self, state):
         (r, c) = state
-        return pow(self.goal[1] - c, 2) + pow(self.goal[0] - r, 2)
+        return abs(self.goal[1] - c) + abs(self.goal[0] - r)
 
 
 if __name__ == "__main__":
