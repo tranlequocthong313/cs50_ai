@@ -1,20 +1,4 @@
-
-## Hướng dẫn sử dụng
-Để tạo maze bạn cần làm theo các mẫu có sẵn trong các file text maze.txt. Một maze ví du:
-
-    #####B#
-    ##### #
-    ####  #
-    #### ##
-         ##
-    A######
-
-    "A": là điểm bắt đầu maze
-    "B": là điểm kết thúc maze
-    "#": là tường của maze
-    " ": là đường đi trong maze
-
-
+## Hướng dẫn chạy dự án
 1. **Clone Repository:**
    ```bash
    git clone https://github.com/tranlequocthong313/cs50_ai.git
@@ -50,12 +34,7 @@
    pip install -r requirements.txt
    ```
 
-6. **Đọc hướng dẫn sử dụng:**
+6. **Truy cập vào ứng dụng bất kỳ và đọc hướng dẫn sử dụng trong file README.md:**
    ```bash
-   python maze.py --help
-   ```
-
-7. **Chạy ứng dụng:**
-   ```bash
-   python maze.py maze1.txt
+   cd [folder_name]
    ```
