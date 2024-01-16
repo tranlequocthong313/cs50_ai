@@ -26,6 +26,32 @@ class StackFrontier:
             self.frontier = self.frontier[:-1]
             return node
 
+    def remove_smallest_node(self, heuristic):
+        if self.empty():
+            raise Exception("empty frontier")
+        else:
+            smallest_node_index = 0
+            for i, node in enumerate(self.frontier):
+                if heuristic(node.state) < heuristic(
+                    self.frontier[smallest_node_index].state
+                ):
+                    smallest_node_index = i
+            node = self.frontier[smallest_node_index]
+            self.frontier = (
+                self.frontier[:smallest_node_index]
+                + self.frontier[smallest_node_index + 1 :]
+            )
+            return node
+
+    def sort(self, compare):
+        for i in range(len(self.frontier)):
+            for j in range(i + 1, len(self.frontier)):
+                if compare(self.frontier[i].state, self.frontier[j].state) > 0:
+                    self.frontier[i], self.frontier[j] = (
+                        self.frontier[j],
+                        self.frontier[i],
+                    )
+
 
 class QueueFrontier(StackFrontier):
     def remove(self):
@@ -38,11 +64,13 @@ class QueueFrontier(StackFrontier):
 
 
 class Maze:
-    def __init__(self, filename, show_image, verbose, bfs):
+    def __init__(self, filename, show_image, verbose, bfs, gbfs, show_mahattan):
         self.filename = filename
         self.show_image = show_image
         self.verbose = verbose
         self.bfs = bfs
+        self.gbfs = gbfs
+        self.show_mahattan = show_mahattan
 
         with open(filename) as f:
             contents = f.read()
@@ -86,7 +114,8 @@ class Maze:
         print("States explored", self.num_explored)
 
     def display_image(self):
-        from PIL import Image, ImageDraw
+        from PIL import Image, ImageDraw, ImageFont
+        import math
 
         if not self.show_image:
             return
@@ -103,7 +132,7 @@ class Maze:
             " ": (255, 255, 255),
         }
         for r, row in enumerate(self.map):
-            for c, col in enumerate(row):
+            for c, _ in enumerate(row):
                 fill = colors[self.map[r][c]]
                 if (
                     self.verbose
@@ -132,6 +161,20 @@ class Maze:
                     outline=(0, 0, 0),
                     width=3,
                 )
+                if self.show_mahattan and self.map[r][c] == " ":
+                    mahattan = str(abs(self.goal[1] - c) + abs(self.goal[0] - r))
+                    canvas.text(
+                        (
+                            c * self.square_size + self.square_size // 2,
+                            r * self.square_size + self.square_size // 2,
+                        ),
+                        mahattan,
+                        font=ImageFont.truetype("arial.ttf", self.square_size // 2),
+                        fill=(0, 0, 0),
+                        anchor="mm",
+                        stroke_width=1,
+                        stroke_fill="black",
+                    )
         img.show()
         img.save("maze.png", "PNG")
 
@@ -148,7 +191,13 @@ class Maze:
         result = []
         for action, (r, c) in candidates:
             try:
-                if not self.map[r][c] == "#":
+                if (
+                    r >= 0
+                    and c >= 0
+                    and r < self.height
+                    and c < self.width
+                    and not self.map[r][c] == "#"
+                ):
                     result.append((action, (r, c)))
             except IndexError:
                 continue
@@ -158,7 +207,7 @@ class Maze:
         self.num_explored = 0
 
         start = Node(state=self.start, parent=None, action=None)
-        frontier = QueueFrontier() if self.bfs else StackFrontier()
+        frontier = QueueFrontier() if self.gbfs or self.bfs else StackFrontier()
         frontier.add(start)
 
         self.explored = set()
@@ -167,7 +216,10 @@ class Maze:
             if frontier.empty():
                 raise Exception("no solution")
 
-            node = frontier.remove()
+            if self.gbfs:
+                node = frontier.remove_smallest_node(self.__distance_to_goal)
+            else:
+                node = frontier.remove()
             self.num_explored += 1
 
             if self.goal == node.state:
@@ -185,9 +237,16 @@ class Maze:
             self.explored.add(node.state)
 
             for action, state in self.neighbors(node.state):
-                if not frontier.contains_state(state) and state not in self.explored:
+                if self.__valid_state(frontier=frontier, state=state):
                     child = Node(state=state, parent=node, action=action)
                     frontier.add(child)
+
+    def __valid_state(self, frontier, state):
+        return not frontier.contains_state(state) and state not in self.explored
+
+    def __distance_to_goal(self, state):
+        (r, c) = state
+        return pow(self.goal[1] - c, 2) + pow(self.goal[0] - r, 2)
 
 
 if __name__ == "__main__":
@@ -199,9 +258,17 @@ if __name__ == "__main__":
         print("--show-image:", "show image of the maze")
         print(
             "--bfs:",
-            "use breadth first search, default algorithm is depth first search",
+            "use breadth-first search, default algorithm is depth-first search",
+        )
+        print(
+            "--gbfs:",
+            "use greedy breadth-first search, default algorithm is depth-first search",
         )
         print("--verbose:", "show all explored path when --show-image option is true")
+        print(
+            "--show-mahattan:",
+            "show Mahattan distance when --show-image option is true",
+        )
     else:
         print('Type "--help" for more information.')
         if len(sys.argv) <= 1 or not sys.argv[1].endswith(".txt"):
@@ -210,8 +277,19 @@ if __name__ == "__main__":
         show_image = "--show-image" in sys.argv
         verbose = "--verbose" in sys.argv
         bfs = "--bfs" in sys.argv
+        gbfs = "--gbfs" in sys.argv
+        show_mahattan = "--show-mahattan" in sys.argv
+        if bfs and gbfs:
+            raise Exception("choose only one algorithm")
 
-        maze = Maze(filename=filename, show_image=show_image, verbose=verbose, bfs=bfs)
+        maze = Maze(
+            filename=filename,
+            show_image=show_image,
+            verbose=verbose,
+            bfs=bfs,
+            gbfs=gbfs,
+            show_mahattan=show_mahattan,
+        )
         maze.solve()
         maze.print()
         maze.display_image()
