@@ -215,7 +215,9 @@ class Maze:
         self.num_explored = 0
 
         start = Node(state=self.start, parent=None, action=None)
-        frontier = QueueFrontier() if self.gbfs or self.bfs else StackFrontier()
+        frontier = (
+            QueueFrontier() if self.a_star or self.gbfs or self.bfs else StackFrontier()
+        )
         frontier.add(start)
 
         self.explored = set()
