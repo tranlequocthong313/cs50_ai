@@ -94,7 +94,7 @@ class TicTacToe:
             else 0
         )
 
-    def max_value(self, state):
+    def max_value(self, state, alpha=-sys.maxsize - 1, beta=sys.maxsize):
         if self.terminal(state):
             return (None, self.utility(state))
         value = -sys.maxsize - 1
@@ -104,11 +104,12 @@ class TicTacToe:
             if value <= min_value:
                 best_action = action
                 value = min_value
-            if value == 1:
+            alpha = max(alpha, value)
+            if beta <= alpha:
                 break
         return (best_action, value)
 
-    def min_value(self, state):
+    def min_value(self, state, alpha=-sys.maxsize - 1, beta=sys.maxsize):
         if self.terminal(state):
             return (None, self.utility(state))
         value = sys.maxsize
@@ -117,7 +118,8 @@ class TicTacToe:
             if value >= max_value:
                 best_action = action
                 value = max_value
-            if value == -1:
+            beta = min(beta, value)
+            if beta <= alpha:
                 break
         return (best_action, value)
 
@@ -196,7 +198,7 @@ if __name__ == "__main__":
             try:
                 winner = game.utility(state)
                 if winner in (1, -1):
-                    print(f"Winner is {"X" if winner == 1 else "O"}!")
+                    print(f"Winner is {'X' if winner == 1 else 'O'}!")
                 else:
                     print(f"No one won!")
             except Exception as e:
