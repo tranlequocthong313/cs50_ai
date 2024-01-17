@@ -15,6 +15,11 @@ def convert(board):
     return board
 
 
+@app.get("/check-healthy")
+def check_healthy():
+    return jsonify({"message": "Hello from server!"})
+
+
 @app.post("/choose/<box>")
 def choose(box):
     try:
